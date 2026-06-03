@@ -15,8 +15,8 @@ Ensure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone git@github.com:LIDR-academy/AI4Devs-LTI-extended.git
-cd AI4Devs-LTI-extended
+git clone https://github.com/pacb9148/pladurcuter.git
+cd pladurcuter
 ```
 
 ### 2. Environment Configuration
