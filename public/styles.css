@@ -1,0 +1,152 @@
+/* ============================================================
+   DROP ZONE
+   ============================================================ */
+
+.drop-zone {
+  border: 2.5px dashed #94a3b8;
+  border-radius: 10px;
+  padding: 2rem 1.5rem;
+  cursor: pointer;
+  background: #f8fafc;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 170px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drop-zone:hover,
+.drop-zone:focus {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  outline: none;
+}
+
+.drop-zone.drag-over {
+  border-color: #2563eb;
+  background: #dbeafe;
+}
+
+.drop-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  margin-bottom: .5rem;
+}
+
+/* ============================================================
+   BOARD SVG
+   ============================================================ */
+
+.board-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1.5px solid #64748b;
+  border-radius: 3px;
+}
+
+/* ============================================================
+   LEGEND
+   ============================================================ */
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: #475569;
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #94a3b8;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.waste-legend {
+  background: repeating-linear-gradient(
+    45deg,
+    #e2e8f0,
+    #e2e8f0 4px,
+    #f1f5f9 4px,
+    #f1f5f9 10px
+  );
+}
+
+/* ============================================================
+   SUMMARY TABLE
+   ============================================================ */
+
+.summary-table {
+  max-width: 600px;
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+
+.print-only { display: none; }
+
+/* ============================================================
+   PRINT STYLES
+   ============================================================ */
+
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    font-size: 10pt;
+    background: white;
+    margin: 0;
+  }
+
+  .no-print  { display: none !important; }
+  .print-only { display: block !important; }
+
+  /* Supress Bootstrap shadow/borders on print */
+  .card       { box-shadow: none !important; border: 1px solid #ccc !important; }
+  .card-header { background: #e8e8e8 !important; color: #000 !important; }
+
+  /* Each board on its own page */
+  .board-page {
+    page-break-after: always;
+    break-after: page;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .board-page:last-of-type {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* SVG max size for A4 */
+  .board-svg {
+    max-width: 9cm !important;
+    max-height: 14cm !important;
+    border: 1px solid #333 !important;
+  }
+
+  /* Summary on new page */
+  #summary-section {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* Tighten table */
+  .table {
+    font-size: 8.5pt;
+  }
+
+  /* Badges */
+  .badge {
+    border: 1px solid #999 !important;
+    color: #000 !important;
+    background: #eee !important;
+  }
+}
