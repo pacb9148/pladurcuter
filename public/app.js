@@ -1,129 +1,95 @@
 'use strict';
 
-// ============================================================
-// DOM REFS
-// ============================================================
-
-const dropZone             = document.getElementById('drop-zone');
-const fileInput            = document.getElementById('file-input');
-const fileSelectedDiv      = document.getElementById('file-selected');
-const fileNameDisplay      = document.getElementById('file-name-display');
-const btnClearFile         = document.getElementById('btn-clear-file');
-const btnOptimize          = document.getElementById('btn-optimize');
-const btnText              = document.getElementById('btn-text');
-const btnSpinner           = document.getElementById('btn-spinner');
-const btnNew               = document.getElementById('btn-new');
-const btnPrint             = document.getElementById('btn-print');
-const uploadSection        = document.getElementById('upload-section');
-const resultsSection       = document.getElementById('results-section');
-const boardsContainer      = document.getElementById('boards-container');
-const summaryContainer     = document.getElementById('summary-container');
-const parseErrorsContainer = document.getElementById('parse-errors-container');
-const parseErrorsList      = document.getElementById('parse-errors-list');
-const resultMeta           = document.getElementById('result-meta');
-const printDate            = document.getElementById('print-date');
-const uploadError          = document.getElementById('upload-error');
-const uploadErrorMsg       = document.getElementById('upload-error-msg');
-
-// ============================================================
-// STATE
-// ============================================================
+// ── DOM ──────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const dropZone    = $('drop-zone');
+const fileInput   = $('file-input');
+const fileBadge   = $('file-selected');
+const fileLabel   = $('file-name-display');
+const btnClear    = $('btn-clear-file');
+const btnOptimize = $('btn-optimize');
+const btnText     = $('btn-text');
+const btnSpinner  = $('btn-spinner');
+const btnNew      = $('btn-new');
+const btnPrint    = $('btn-print');
+const uploadSec   = $('upload-section');
+const resultsSec  = $('results-section');
+const boardsEl    = $('boards-container');
+const summaryEl   = $('summary-container');
+const errContainer = $('parse-errors-container');
+const errList     = $('parse-errors-list');
+const resultMeta  = $('result-meta');
+const printDate   = $('print-date');
+const uploadErr   = $('upload-error');
 
 let currentFile = null;
 
-// ============================================================
-// FILE HANDLING
-// ============================================================
-
+// ── File handling ─────────────────────────────────────────────
 dropZone.addEventListener('click', () => fileInput.click());
-dropZone.addEventListener('keydown', e => {
-  if (e.key === 'Enter' || e.key === ' ') fileInput.click();
-});
-fileInput.addEventListener('change', e => {
-  if (e.target.files[0]) setFile(e.target.files[0]);
-});
-
-dropZone.addEventListener('dragover', e => {
-  e.preventDefault();
-  dropZone.classList.add('drag-over');
-});
+dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+fileInput.addEventListener('change', e => e.target.files[0] && setFile(e.target.files[0]));
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
 dropZone.addEventListener('drop', e => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) setFile(file);
+  e.dataTransfer.files[0] && setFile(e.dataTransfer.files[0]);
 });
-
-btnClearFile.addEventListener('click', clearFile);
+btnClear.addEventListener('click', clearFile);
 
 function setFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   if (!['csv', 'pdf', 'txt'].includes(ext)) {
-    showUploadError('Formato no soportado. Use archivos CSV o PDF.');
+    showErr('Formato no soportado. Use CSV o PDF.');
     return;
   }
   currentFile = file;
-  fileNameDisplay.textContent = `${file.name}  (${fmtBytes(file.size)})`;
-  fileSelectedDiv.classList.remove('d-none');
-  dropZone.classList.add('d-none');
+  fileLabel.textContent = `${file.name}  (${fmtBytes(file.size)})`;
+  fileBadge.classList.remove('hidden');
+  dropZone.classList.add('hidden');
   btnOptimize.disabled = false;
-  hideUploadError();
+  hideErr();
 }
 
 function clearFile() {
-  currentFile        = null;
-  fileInput.value    = '';
-  fileSelectedDiv.classList.add('d-none');
-  dropZone.classList.remove('d-none');
+  currentFile       = null;
+  fileInput.value   = '';
+  fileBadge.classList.add('hidden');
+  dropZone.classList.remove('hidden');
   btnOptimize.disabled = true;
-  hideUploadError();
+  hideErr();
 }
 
 function fmtBytes(b) {
-  if (b < 1024)           return b + ' B';
-  if (b < 1024 * 1024)    return (b / 1024).toFixed(1) + ' KB';
-  return (b / 1048576).toFixed(1) + ' MB';
+  return b < 1024 ? `${b} B` : b < 1048576 ? `${(b/1024).toFixed(1)} KB` : `${(b/1048576).toFixed(1)} MB`;
 }
 
-function showUploadError(msg) {
-  uploadErrorMsg.textContent = msg;
-  uploadError.classList.remove('d-none');
-}
-function hideUploadError() {
-  uploadError.classList.add('d-none');
-}
+function showErr(msg) { uploadErr.textContent = msg; uploadErr.classList.remove('hidden'); }
+function hideErr()    { uploadErr.classList.add('hidden'); }
 
-// ============================================================
-// OPTIMIZE
-// ============================================================
+// ── Optimize ──────────────────────────────────────────────────
+btnOptimize.addEventListener('click', run);
 
-btnOptimize.addEventListener('click', handleOptimize);
-
-async function handleOptimize() {
+async function run() {
   if (!currentFile) return;
   setLoading(true);
-  hideUploadError();
+  hideErr();
 
   try {
     const fd = new FormData();
     fd.append('file', currentFile);
-
     const res  = await fetch('/api/process', { method: 'POST', body: fd });
     const data = await res.json();
 
     if (!res.ok) {
-      const msg = data.error || 'Error desconocido';
-      const errDetail = data.parseErrors?.length
-        ? '\n' + data.parseErrors.map(e => `  · Fila ${e.row}: ${e.message}`).join('\n')
-        : '';
-      showUploadError(msg + errDetail);
+      const detail = data.parseErrors?.map(e => `  Fila ${e.row}: ${e.message}`).join('\n') || '';
+      showErr((data.error || 'Error desconocido') + (detail ? '\n' + detail : ''));
       return;
     }
 
     renderResults(data);
-  } catch (err) {
-    showUploadError('Error de conexión: ' + err.message);
+  } catch (e) {
+    showErr('Error de conexión: ' + e.message);
   } finally {
     setLoading(false);
   }
@@ -131,234 +97,167 @@ async function handleOptimize() {
 
 function setLoading(on) {
   btnOptimize.disabled = on;
-  btnText.textContent  = on ? 'Procesando...' : '⚙️ Subir y Optimizar';
-  btnSpinner.classList.toggle('d-none', !on);
+  btnText.textContent  = on ? 'Procesando…' : 'Procesar';
+  btnSpinner.classList.toggle('hidden', !on);
 }
 
-// ============================================================
-// RENDER RESULTS
-// ============================================================
-
-btnNew.addEventListener('click', resetToUpload);
+// ── Results ───────────────────────────────────────────────────
+btnNew.addEventListener('click', reset);
 btnPrint.addEventListener('click', () => window.print());
 
-function renderResults(result) {
-  uploadSection.classList.add('d-none');
-  resultsSection.classList.remove('d-none');
+function renderResults(data) {
+  uploadSec.classList.add('hidden');
+  resultsSec.classList.remove('hidden');
 
-  // Parse warnings
-  if (result.parseErrors?.length) {
-    parseErrorsContainer.classList.remove('d-none');
-    parseErrorsList.innerHTML = result.parseErrors
-      .map(e => `<li>Fila ${e.row}: ${escHtml(e.message)}</li>`)
-      .join('');
+  if (data.parseErrors?.length) {
+    errContainer.classList.remove('hidden');
+    errList.innerHTML = data.parseErrors.map(e => `<li>Fila ${e.row}: ${esc(e.message)}</li>`).join('');
   } else {
-    parseErrorsContainer.classList.add('d-none');
+    errContainer.classList.add('hidden');
   }
 
-  // Meta
-  const dt = new Date(result.generatedAt).toLocaleString('es-ES');
-  resultMeta.textContent = `${result.totalPieces} piezas · ${result.totalBoards} tableros · ${result.overallWaste}% desperdicio global`;
-  printDate.textContent  = `Generado: ${dt}`;
+  const dt = new Date(data.generatedAt).toLocaleString('es-ES');
+  resultMeta.textContent = `${data.totalPieces} piezas · ${data.totalBoards} tableros · ${data.overallWaste}% desperdicio`;
+  printDate.textContent  = dt;
 
-  // Boards
-  boardsContainer.innerHTML = '';
-  result.boards.forEach(board => boardsContainer.appendChild(buildBoardCard(board)));
+  boardsEl.innerHTML = '';
+  data.boards.forEach(b => boardsEl.appendChild(boardCard(b)));
 
-  // Summary
-  renderSummary(result);
-
+  renderSummary(data);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function resetToUpload() {
-  resultsSection.classList.add('d-none');
-  uploadSection.classList.remove('d-none');
-  boardsContainer.innerHTML   = '';
-  summaryContainer.innerHTML  = '';
+function reset() {
+  resultsSec.classList.add('hidden');
+  uploadSec.classList.remove('hidden');
+  boardsEl.innerHTML  = '';
+  summaryEl.innerHTML = '';
   clearFile();
   window.scrollTo({ top: 0 });
 }
 
-// ============================================================
-// BOARD CARD
-// ============================================================
-
-function buildBoardCard(board) {
-  const wasteBadge = board.wastePercentage > 20 ? 'bg-danger'
-                   : board.wastePercentage > 10 ? 'bg-warning text-dark'
-                   : 'bg-success';
+// ── Board card ────────────────────────────────────────────────
+function boardCard(board) {
+  const wasteClass = board.wastePercentage > 20 ? 'waste-high'
+                   : board.wastePercentage > 10 ? 'waste-mid' : 'waste-low';
 
   const div = document.createElement('div');
-  div.className = 'board-page card shadow-sm mb-4';
+  div.className = 'board-card';
   div.innerHTML = `
-    <div class="card-header d-flex justify-content-between align-items-center py-2">
-      <span class="fw-bold">Tablero #${board.boardIndex} &nbsp;—&nbsp; ${escHtml(board.groupKey)}</span>
-      <span class="badge ${wasteBadge}">Desperdicio: ${board.wastePercentage}%</span>
+    <div class="board-card-header">
+      <b>#${board.boardIndex} &nbsp;${esc(board.groupKey)}</b>
+      <span class="waste-badge ${wasteClass}">Desperdicio ${board.wastePercentage}%</span>
     </div>
-    <div class="card-body p-3">
-      <div class="row g-3 align-items-start">
-        <div class="col-sm-5 col-md-4 col-lg-3">
-          ${buildBoardSVG(board)}
-          <p class="text-center text-muted small mt-1 mb-0">
-            ${board.pieces.length} pieza${board.pieces.length !== 1 ? 's' : ''}
-            · Útil: ${(board.usedArea / (1200 * 2800) * 100).toFixed(1)}%
-          </p>
-        </div>
-        <div class="col-sm-7 col-md-8 col-lg-9">
-          ${buildPieceTable(board)}
+    <div class="board-card-body">
+      <div class="bsvg-wrap">
+        ${boardSVG(board)}
+        <div class="bsvg-meta">
+          ${board.pieces.length} pzs<br>
+          útil ${(board.usedArea/(1200*2800)*100).toFixed(1)}%
         </div>
       </div>
+      <div class="blist-wrap">${pieceTable(board)}</div>
     </div>`;
   return div;
 }
 
-// ============================================================
-// SVG DIAGRAM
-// ============================================================
-
-function buildBoardSVG(board) {
+// ── SVG diagram ───────────────────────────────────────────────
+function boardSVG(board) {
   const BW = 1200, BH = 2800;
   const uid = `b${board.boardIndex}`;
 
-  const pieceSVG = board.pieces.map((p, i) => {
+  const pieces = board.pieces.map((p, i) => {
     const color  = pieceColor(p.components);
     const clipId = `cl${uid}i${i}`;
     const minDim = Math.min(p.placedLength, p.placedHeight);
-    const fName  = Math.max(28, Math.min(110, minDim * 0.28));
-    const fDim   = Math.max(20, Math.min(80,  minDim * 0.20));
+    const fName  = Math.max(26, Math.min(110, minDim * 0.27));
+    const fDim   = Math.max(18, Math.min(75,  minDim * 0.19));
     const cx = p.x + p.placedLength / 2;
     const cy = p.y + p.placedHeight / 2;
 
     return `
   <clipPath id="${clipId}">
-    <rect x="${p.x + 6}" y="${p.y + 6}" width="${Math.max(0, p.placedLength - 12)}" height="${Math.max(0, p.placedHeight - 12)}"/>
+    <rect x="${p.x+6}" y="${p.y+6}" width="${Math.max(0,p.placedLength-12)}" height="${Math.max(0,p.placedHeight-12)}"/>
   </clipPath>
   <rect x="${p.x}" y="${p.y}" width="${p.placedLength}" height="${p.placedHeight}"
-        fill="${color}" stroke="#1e293b" stroke-width="5" rx="3"/>
-  <g clip-path="url(#${clipId})" font-family="Arial,Helvetica,sans-serif">
-    <text x="${cx}" y="${cy - fDim * 0.6}"
-          text-anchor="middle" dominant-baseline="middle"
-          font-size="${fName}" font-weight="700" fill="#1e293b">${escSvg(p.name)}</text>
-    <text x="${cx}" y="${cy + fName * 0.7}"
-          text-anchor="middle" dominant-baseline="middle"
-          font-size="${fDim}" fill="#475569">${p.placedLength}×${p.placedHeight}mm${p.rotated ? ' ↻' : ''}</text>
+        fill="${color}" stroke="#334155" stroke-width="5" rx="2"/>
+  <g clip-path="url(#${clipId})" font-family="system-ui,sans-serif">
+    <text x="${cx}" y="${cy - fDim*.5}" text-anchor="middle" dominant-baseline="middle"
+          font-size="${fName}" font-weight="700" fill="#1e293b">${esc(p.name)}</text>
+    <text x="${cx}" y="${cy + fName*.75}" text-anchor="middle" dominant-baseline="middle"
+          font-size="${fDim}" fill="#475569">${p.placedLength}×${p.placedHeight}${p.rotated?' ↻':''}</text>
   </g>`;
   }).join('');
 
-  return `<svg class="board-svg"
-         viewBox="0 0 ${BW} ${BH}"
-         xmlns="http://www.w3.org/2000/svg"
-         role="img"
-         aria-label="Diagrama del tablero ${board.boardIndex}: ${board.groupKey}">
+  return `<svg class="board-svg" viewBox="0 0 ${BW} ${BH}"
+     xmlns="http://www.w3.org/2000/svg"
+     role="img" aria-label="Tablero ${board.boardIndex}">
   <defs>
     <pattern id="wp${uid}" patternUnits="userSpaceOnUse" width="120" height="120" patternTransform="rotate(45)">
       <rect width="120" height="120" fill="#f1f5f9"/>
-      <rect width="48" height="120" fill="#e2e8f0"/>
+      <rect width="46" height="120" fill="#e2e8f0"/>
     </pattern>
   </defs>
   <rect width="${BW}" height="${BH}" fill="url(#wp${uid})"/>
-  ${pieceSVG}
-  <rect width="${BW}" height="${BH}" fill="none" stroke="#0f172a" stroke-width="16"/>
+  ${pieces}
+  <rect width="${BW}" height="${BH}" fill="none" stroke="#0f172a" stroke-width="14"/>
 </svg>`;
 }
 
-// ============================================================
-// PIECE TABLE
-// ============================================================
-
-function buildPieceTable(board) {
+// ── Piece table ───────────────────────────────────────────────
+function pieceTable(board) {
   const rows = board.pieces
     .slice()
-    .sort((a, b) =>
-      (a.packageNumber || '').localeCompare(b.packageNumber || '', 'es', { numeric: true })
-    )
-    .map(p => `
-      <tr>
-        <td class="text-nowrap">${escHtml(p.packageNumber)}</td>
-        <td>${escHtml(p.name)}</td>
-        <td class="text-end text-nowrap">${p.length}</td>
-        <td class="text-end text-nowrap">${p.height}</td>
-        <td class="text-nowrap small font-monospace">${escHtml(p.notaClave)}</td>
-        <td class="text-center">${p.rotated ? '<span title="Pieza rotada">↻</span>' : ''}</td>
-      </tr>`)
-    .join('');
-
-  return `<div class="table-responsive">
-  <table class="table table-sm table-bordered table-hover mb-0 align-middle"
-         aria-label="Lista de piezas del tablero ${board.boardIndex}">
-    <thead class="table-dark">
-      <tr>
-        <th scope="col">Paquete</th>
-        <th scope="col">Nombre</th>
-        <th scope="col" class="text-end">Long. (mm)</th>
-        <th scope="col" class="text-end">Alt. (mm)</th>
-        <th scope="col">Nota Clave</th>
-        <th scope="col" class="text-center">Rot.</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-</div>`;
-}
-
-// ============================================================
-// SUMMARY TABLE
-// ============================================================
-
-function renderSummary(result) {
-  const typeRows = result.summary.map(s => `
-    <tr>
-      <td class="fw-semibold font-monospace">${escHtml(s.groupKey)}</td>
-      <td class="text-center">${s.boardCount}</td>
-      <td class="text-center">${s.pieceCount}</td>
-      <td class="text-center">${s.averageWaste}%</td>
+    .sort((a, b) => (a.packageNumber||'').localeCompare(b.packageNumber||'', 'es', {numeric:true}))
+    .map(p => `<tr>
+      <td>${esc(p.packageNumber)}</td>
+      <td>${esc(p.name)}</td>
+      <td class="text-right">${p.length}</td>
+      <td class="text-right">${p.height}</td>
+      <td>${esc(p.notaClave)}</td>
+      <td class="text-center">${p.rotated ? '↻' : ''}</td>
     </tr>`).join('');
 
-  summaryContainer.innerHTML = `
-  <div class="table-responsive">
-    <table class="table table-bordered summary-table"
-           aria-label="Resumen de tableros usados por tipo">
-      <thead class="table-primary">
-        <tr>
-          <th scope="col">Tipo de tablero</th>
-          <th scope="col" class="text-center">Tableros usados</th>
-          <th scope="col" class="text-center">Piezas</th>
-          <th scope="col" class="text-center">% Desperdicio medio</th>
-        </tr>
-      </thead>
-      <tbody>${typeRows}</tbody>
-      <tfoot class="table-dark fw-bold">
-        <tr>
-          <td>TOTAL</td>
-          <td class="text-center">${result.totalBoards}</td>
-          <td class="text-center">${result.totalPieces}</td>
-          <td class="text-center">${result.overallWaste}%</td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>`;
+  return `<table aria-label="Piezas tablero ${board.boardIndex}">
+  <thead>
+    <tr>
+      <th>Paq.</th><th>Nombre</th>
+      <th class="text-right">L (mm)</th><th class="text-right">A (mm)</th>
+      <th>Nota Clave</th><th class="text-center">↻</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>`;
 }
 
-// ============================================================
-// HELPERS
-// ============================================================
+// ── Summary ───────────────────────────────────────────────────
+function renderSummary(data) {
+  const rows = data.summary.map(s => `<tr>
+    <td style="text-align:left;font-weight:600">${esc(s.groupKey)}</td>
+    <td>${s.boardCount}</td><td>${s.pieceCount}</td><td>${s.averageWaste}%</td>
+  </tr>`).join('');
 
-function pieceColor(components) {
-  if (!components) return '#E2E8F0';
-  const map = {
-    TRX: { E: '#BFDBFE', EE: '#93C5FD', H: '#60A5FA', EH: '#3B82F6' },
-    TBX: { E: '#BBF7D0', EE: '#86EFAC', H: '#4ADE80', EH: '#22C55E' }
-  };
-  return map[components.tipo]?.[components.propiedades] ?? '#E2E8F0';
+  summaryEl.innerHTML = `<table>
+  <thead><tr>
+    <th style="text-align:left">Tipo de tablero</th>
+    <th>Tableros</th><th>Piezas</th><th>% Desperdicio</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr class="total-row">
+    <td style="text-align:left">TOTAL</td>
+    <td>${data.totalBoards}</td><td>${data.totalPieces}</td><td>${data.overallWaste}%</td>
+  </tr></tfoot>
+</table>`;
 }
 
-function escHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// ── Helpers ───────────────────────────────────────────────────
+function pieceColor(c) {
+  if (!c) return '#e2e8f0';
+  const m = { TRX: { E:'#BFDBFE', EE:'#93C5FD', H:'#60A5FA', EH:'#3B82F6' },
+               TBX: { E:'#BBF7D0', EE:'#86EFAC', H:'#4ADE80', EH:'#22C55E' } };
+  return m[c.tipo]?.[c.propiedades] ?? '#e2e8f0';
 }
 
-function escSvg(str) {
-  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
